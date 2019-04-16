@@ -17,7 +17,7 @@
  *  cdev - �haracter device structure.
  */
 struct sleepy_dev {
-  //unsigned char *data; //dead code
+  unsigned char *data; //dead code
   struct mutex sleepy_mutex; 
   struct cdev cdev;
   wait_queue_head_t queue; 

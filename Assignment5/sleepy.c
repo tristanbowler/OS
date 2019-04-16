@@ -28,6 +28,7 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 
 #include "sleepy.h"
@@ -89,15 +90,15 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
 {
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
+  //int minor = 0; 
 
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 
   /* YOUR CODE HERE */
   
-  int minor;
-  minor = (int)iminor(filp->f_path.dentry->d_inode);
-  printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up.\n", minor);
+  //minor = (int)iminor(filp->f_path.dentry->d_inode);
+  //printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up.\n", minor);
 
   /* END YOUR CODE */
 
@@ -109,8 +110,12 @@ ssize_t
 sleepy_write(struct file *filp, const char __user *buf, size_t count,
 	     loff_t *f_pos)
 {
+  int sleep_duration;
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
+  int minor;
+  int copy; 
+  ssize_t remaining_seconds;
 
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
@@ -119,26 +124,25 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   if(count != 4){
     return EINVAL;
   }
-  int sleep_duration;
-  int copy = copy_from_user(&sleep_duration, buf, count);
+  
+  copy = copy_from_user(&sleep_duration, buf, count);
   if(copy != 0){
     return EINVAL;
   }
   mutex_unlock(&dev->sleepy_mutex);
-  int wait_return = wait_event_interruptable_timeout(dev->queue, flag != 0, sleep_duration * HZssss);
+  remaining_seconds = wait_event_interruptible_timeout(dev->queue, dev->flag != 0, sleep_duration * HZ);
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
-
-  int minor;
+  remaining_seconds = remaining_seconds / HZ;
   minor = (int)iminor(filp->f_path.dentry->d_inode);
   printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd\n", minor, remaining_seconds);
 
-  if(wait_return == 0){
+  if(remaining_seconds == 0){
     //No interrupting reads
     return 0;
   }
   else{
-    return wait_return / HZ;
+    return remaining_seconds;
   }
 
   /* END YOUR CODE */
@@ -193,7 +197,7 @@ sleepy_construct_device(struct sleepy_dev *dev, int minor,
     }
 
   init_waitqueue_head (&dev->queue);
-  &dev->flag = 0;
+  dev->flag = 0;
 
   device = device_create(class, NULL, /* no parent device */
 			 devno, NULL, /* no additional data */
