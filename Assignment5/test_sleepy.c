@@ -21,6 +21,7 @@ int main(void) {
   for (i = 0; i < 10; i++) {
     if (fork() == 0) {
       /* writing to device 0*/
+      printf("Before open %d\n", i);
       fd = open("/dev/sleepy0", O_RDWR);
       assert(fd != -1);
 
