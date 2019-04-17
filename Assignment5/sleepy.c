@@ -122,11 +122,13 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
 
   /* YOUR CODE HERE */
   if(count != 4){
+    mutex_unlock(&dev->sleepy_mutex);
     return EINVAL;
   }
   
   copy = copy_from_user(&sleep_duration, buf, count);
   if(copy != 0){
+    mutex_unlock(&dev->sleepy_mutex);vvv
     return EINVAL;
   }
   mutex_unlock(&dev->sleepy_mutex);
@@ -136,15 +138,8 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   remaining_seconds = remaining_seconds / HZ;
   minor = (int)iminor(filp->f_path.dentry->d_inode);
   printk("SLEEPY_WRITE DEVICE (%d): remaining = %zd\n", minor, remaining_seconds);
-
-  if(remaining_seconds == 0){
-    //No interrupting reads
-    return 0;
-  }
-  else{
-    return remaining_seconds;
-  }
-
+  
+  retval = remaining_seconds;
   /* END YOUR CODE */
 
   mutex_unlock(&dev->sleepy_mutex);
