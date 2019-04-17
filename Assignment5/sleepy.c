@@ -90,15 +90,15 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
 {
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
-  //int minor = 0; 
+  int minor = 0; 
 
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 
   /* YOUR CODE HERE */
-  
-  //minor = (int)iminor(filp->f_path.dentry->d_inode);
-  //printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up.\n", minor);
+  wake_up_interruptable(dev->queue);
+  minor = (int)iminor(filp->f_path.dentry->d_inode);
+  printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up.\n", minor);
 
   /* END YOUR CODE */
 
