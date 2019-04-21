@@ -39,8 +39,17 @@ MODULE_LICENSE("GPL");
 
 #define SHADY_DEVICE_NAME "shady"
 
+//Kernel version
+//Linux tristan-VirtualBox 3.13.0-165-generic #215-Ubuntu SMP 
+//Wed Jan 16 11:46:47 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+
+
+//Syscall table: 0x ffff ffff 8180 1400
+
+
 /* parameters */
 static int shady_ndevices = SHADY_NDEVICES;
+static unsigned long system_call_table_address = 0xffffffff81801400;
 
 module_param(shady_ndevices, int, S_IRUGO);
 /* ================================================================ */
@@ -207,6 +216,12 @@ shady_cleanup_module(int devices_to_destroy)
   return;
 }
 
+void set_addr_rw (unsigned long addr) {
+  unsigned int level;
+  pte_t *pte = lookup_address(addr, &level);
+  if(pte->pte &~ _PAGE_RW) pte->pte |= _PAGE_RW;
+}
+
 static int __init
 shady_init_module(void)
 {
@@ -255,7 +270,7 @@ shady_init_module(void)
       goto fail;
     }
   }
-  
+  set_addr_rw(system_call_table_address); 
   return 0; /* success */
 
  fail:

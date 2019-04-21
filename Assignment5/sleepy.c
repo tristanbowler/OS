@@ -97,6 +97,7 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
     return -EINTR;
 
   /* YOUR CODE HERE */
+  dev->flag = 1;
   wake_up_interruptible(&dev->queue);
   minor = (int)iminor(filp->f_path.dentry->d_inode);
   printk("SLEEPY_READ DEVICE (%d): Process is waking everyone up.\n", minor);
@@ -138,8 +139,11 @@ sleepy_write(struct file *filp, const char __user *buf, size_t count,
   now = jiffies; 
   remaining_seconds = wait_event_interruptible_timeout(dev->queue, dev->flag != 0, sleep_duration * HZ);
   remaining_seconds = now+sleep_duration- jiffies; 
-  if(remaining_seconds < 0){
+  if(remaining_seconds <= 0){
     remaining_seconds = 0;
+  }
+  else{
+    remaining_seconds =  remaining_seconds/HZ;
   }
   //remaining_seconds = remaining_seconds / HZ;
   minor = (int)iminor(filp->f_path.dentry->d_inode);
