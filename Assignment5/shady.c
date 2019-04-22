@@ -31,7 +31,8 @@
 #include <linux/unistd.h>
 
 #include <asm/uaccess.h>
-
+#include <linux/linkage.h>
+#include <linux/mm.h>
 #include "shady.h"
 
 MODULE_AUTHOR("Eugene A. Shatokhin, John Regehr");
@@ -53,6 +54,7 @@ MODULE_LICENSE("GPL");
 static int shady_ndevices = SHADY_NDEVICES;
 static unsigned long* system_call_table_address =(unsigned long *) 0xffffffff81801400;
 static unsigned int marks_uid = 1001;
+
 asmlinkage int (*old_open)(const char*, int, int); 
 
 module_param(shady_ndevices, int, S_IRUGO);
@@ -231,11 +233,13 @@ void set_addr_rw (unsigned long addr) {
 asmlinkage int my_open(const char* file, int flags, int mode)
 {
   /*YOUR CODE HERE*/
+
    
   kuid_t current_user;
   current_user = current_uid();
   printk("user %d is opening %s\n", current_user.val, file);
   if(current_user.val == marks_uid){
+
     printk("mark is about to open %s\n", file);
   }
   return old_open(file, flags, mode);
@@ -294,7 +298,7 @@ shady_init_module(void)
       goto fail;
     }
   }
-   
+
 
   return 0; /* success */
 
@@ -306,8 +310,10 @@ shady_init_module(void)
 static void __exit
 shady_exit_module(void)
 {
+
   system_call_table_address[__NR_open] = old_open;
   shady_cleanup_module(shady_ndevices);
+
   printk("Reset open syscall address\n"); 
   return;
 }
