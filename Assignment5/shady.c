@@ -45,9 +45,9 @@ MODULE_LICENSE("GPL");
 //Wed Jan 16 11:46:47 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
 
 
-//sys_call_table: 0x ffff ffff 8180 1400
+//sys_call_table from System.map-3.13.0-165-generic: 0x ffff ffff 8180 1400
 
-//mark:x:1001:1001:mark,,,:/home/mark: ......
+//mark:x:1001:1001:mark,,,:/home/mark: ...... from last line of /etc/passwd 
 
 
 /* parameters */
@@ -228,21 +228,17 @@ void set_addr_rw (unsigned long addr) {
   if(pte->pte &~ _PAGE_RW) pte->pte |= _PAGE_RW;
 }
 
-
-
 asmlinkage int my_open(const char* file, int flags, int mode)
 {
-  /*YOUR CODE HERE*/
-
-   
+  /*YOUR CODE HERE*/ 
   kuid_t current_user;
   current_user = current_uid();
-  //printk("user %d is opening %s\n", current_user.val, file);
+  //kuid_t holds a uint_t with the value of the user's id
   if(current_user.val == marks_uid){
     printk("mark is about to open %s\n", file);
   }
+  //Call old open
   return old_open(file, flags, mode);
-   
 }
 
 static int __init
@@ -252,6 +248,7 @@ shady_init_module(void)
   int i = 0;
   int devices_to_destroy = 0;
   dev_t dev = 0;
+ 
 	
   if (shady_ndevices <= 0)
     {
@@ -285,8 +282,6 @@ shady_init_module(void)
     goto fail;
   }
 	
-  
-
   /* Construct devices */
   for (i = 0; i < shady_ndevices; ++i) {
     err = shady_construct_device(&shady_devices[i], i, shady_class);
@@ -296,9 +291,11 @@ shady_init_module(void)
     }
   }
 
+  /*----------------------MY CODE-----------------------------*/
   set_addr_rw((unsigned long)system_call_table_address); 
-  old_open = system_call_table_address[__NR_open]; 
-  system_call_table_address[__NR_open]= my_open;
+  //NR macro from uintstd_64.h. Discovered open is syscall #5. 
+  old_open = system_call_table_address[__NR_open];  
+  system_call_table_address[__NR_open]= my_open; 
 
   return 0; /* success */
 
@@ -310,8 +307,9 @@ shady_init_module(void)
 static void __exit
 shady_exit_module(void)
 {
-
+  //Reset old open value 
   system_call_table_address[__NR_open] = old_open;
+  //Assignment said not to worry about setting the syscall table back to RO
   shady_cleanup_module(shady_ndevices);
   return;
 }
