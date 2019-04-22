@@ -31,7 +31,8 @@
 #include <linux/unistd.h>
 
 #include <asm/uaccess.h>
-
+#include <linux/linkage.h>
+#include <linux/mm.h>
 #include "shady.h"
 
 MODULE_AUTHOR("Eugene A. Shatokhin, John Regehr");
@@ -51,7 +52,7 @@ MODULE_LICENSE("GPL");
 
 /* parameters */
 static int shady_ndevices = SHADY_NDEVICES;
-static unsigned long system_call_table_address = 0xffffffff81801400;
+static void** system_call_table_address =(void*) 0xffffffff81801400;
 int marks_uid = 1001;
 asmlinkage int (*old_open)(const char*, int, int); 
 
@@ -232,9 +233,9 @@ asmlinkage int my_open(const char* file, int flags, int mode)
 {
   /*YOUR CODE HERE*/
   int open_return = -1; 
-  int current_uid = current_uid(); 
-  if(current_uid != marks_uid){
-    printk("user %d is opening %s\n", current_uid, file);
+  uid_t current_user = current_uid().val;
+  if(current_user != marks_uid){
+    printk("user %d is opening %s\n", current_user, file);
   }
   else{
     printk("mark is about to open %s\n", file);
@@ -291,9 +292,9 @@ shady_init_module(void)
       goto fail;
     }
   }
-  set_addr_rw(system_call_table_address); 
-  old_open = system_call_table_address[__NR_open]; 
-  system_call_table_address[__NR_open]= my_open; 
+  set_addr_rw((unsigned long)system_call_table_address); 
+  old_open = system_call_table_address[5]; 
+  system_call_table_address[5]= my_open; 
 
   return 0; /* success */
 
@@ -306,7 +307,7 @@ static void __exit
 shady_exit_module(void)
 {
   shady_cleanup_module(shady_ndevices);
-  system_call_table_address[__NR_open] = old_open;
+  system_call_table_address[5] = old_open;
   printk("Reset open syscall address\n"); 
   return;
 }
