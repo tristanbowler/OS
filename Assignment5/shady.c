@@ -51,8 +51,8 @@ MODULE_LICENSE("GPL");
 
 /* parameters */
 static int shady_ndevices = SHADY_NDEVICES;
-static unsigned long system_call_table_address = 0xffffffff81801400;
-int marks_uid = 1001;
+static unsigned long* system_call_table_address =(unsigned long *) 0xffffffff81801400;
+static unsigned int marks_uid = 1001;
 asmlinkage int (*old_open)(const char*, int, int); 
 
 module_param(shady_ndevices, int, S_IRUGO);
@@ -231,16 +231,15 @@ void set_addr_rw (unsigned long addr) {
 asmlinkage int my_open(const char* file, int flags, int mode)
 {
   /*YOUR CODE HERE*/
-  int open_return = -1; 
-  int current_uid = current_uid(); 
-  if(current_uid != marks_uid){
-    printk("user %d is opening %s\n", current_uid, file);
-  }
-  else{
+   
+  kuid_t current_user;
+  current_user = current_uid();
+  printk("user %d is opening %s\n", current_user.val, file);
+  if(current_user.val == marks_uid){
     printk("mark is about to open %s\n", file);
   }
-  open_return = old_open(file, flags, mode);
-  return open_return; 
+  return old_open(file, flags, mode);
+   
 }
 
 static int __init
@@ -283,6 +282,10 @@ shady_init_module(void)
     goto fail;
   }
 	
+  set_addr_rw((unsigned long)system_call_table_address); 
+  old_open = system_call_table_address[__NR_open]; 
+  system_call_table_address[__NR_open]= my_open;
+
   /* Construct devices */
   for (i = 0; i < shady_ndevices; ++i) {
     err = shady_construct_device(&shady_devices[i], i, shady_class);
@@ -291,9 +294,7 @@ shady_init_module(void)
       goto fail;
     }
   }
-  set_addr_rw(system_call_table_address); 
-  old_open = system_call_table_address[__NR_open]; 
-  system_call_table_address[__NR_open]= my_open; 
+   
 
   return 0; /* success */
 
@@ -305,8 +306,8 @@ shady_init_module(void)
 static void __exit
 shady_exit_module(void)
 {
-  shady_cleanup_module(shady_ndevices);
   system_call_table_address[__NR_open] = old_open;
+  shady_cleanup_module(shady_ndevices);
   printk("Reset open syscall address\n"); 
   return;
 }
